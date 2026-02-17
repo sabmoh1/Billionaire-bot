@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>BOT BILLIONAIRE - Animated Pro</title>
+    <style>
+        :root {
+            --primary: #00d2ff;
+            --up: #00ff87;
+            --down: #ff3838;
+            --bg: #02060c;
+        }
+        * { box-sizing: border-box; transition: all 0.25s ease; }
+
+        html,body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: #fff;
+            font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+            -webkit-font-smoothing:antialiased;
+            -moz-osx-font-smoothing:grayscale;
+        }
+
+        /* Canvas background (المثلثات / الأسهم) */
+        #bg-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        /* Container (glass) */
+        .glass-container {
+            position: relative;
+            z-index: 10;
+            width: 92%;
+            max-width: 460px;
+            margin: auto;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(6,11,20,0.95);
+            backdrop-filter: blur(25px);
+            border-radius: 35px;
+            padding: 35px;
+            border: 1px solid rgba(0,210,255,0.14);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+            text-align: center;
+        }
+
+        .logo-area h1 {
+            font-size: 2.15rem;
+            margin: 0;
+            background: linear-gradient(to bottom, #fff, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+        .logo-area p {
+            color: var(--primary);
+            font-size: 0.72rem;
+            letter-spacing: 4px;
+            margin-bottom: 22px;
+            font-weight: 700;
+        }
+
+        .page { display: none; animation: slideUp 0.45s ease both; }
+        .active-page { display: block; }
+
+        input, select {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(0,0,0,0.45);
+            color: #fff;
+            margin-bottom: 12px;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .time-selector { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
+        .circle-btn {
+            width: 66px; height: 66px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.08);
+            display:flex; align-items:center; justify-content:center;
+            cursor: pointer; font-weight: 900; user-select:none;
+            background: rgba(255,255,255,0.02);
+        }
+        .circle-btn.active { border-color: var(--primary); box-shadow: 0 0 18px var(--primary); background: rgba(0,210,255,0.06); }
+
+        .action-btn {
+            width:100%;
+            padding:18px;
+            border-radius:14px;
+            border:none;
+            background: linear-gradient(135deg,#00d2ff,#3a7bd5);
+            color:#fff;
+            font-size:1.05rem;
+            font-weight:900;
+            cursor:pointer;
+        }
+
+        .analysis-box {
+            display:none;
+            height:140px;
+            background:#000;
+            border-radius:15px;
+            border:1px solid rgba(0,210,255,0.14);
+            margin:15px 0;
+            position:relative;
+            overflow:hidden;
+        }
+
+        .candle-flow {
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:10px;
+            height:100%;
+            padding:10px;
+        }
+        .c-bar { width: 10px; border-radius:3px; position:relative; animation: grow 0.6s infinite alternate; }
+        .arrow-up {
+            position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+            border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:10px solid #fff;
+        }
+        .arrow-down {
+            position:absolute; bottom:-12px; left:50%; transform:translateX(-50%);
+            border-left:6px solid transparent; border-right:6px solid transparent; border-top:10px solid #fff;
+        }
+
+        @keyframes grow { from { height: 20px; } to { height: 70px; } }
+        @keyframes slideUp { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform: translateY(0); } }
+
+        .signal-res { display:none; margin-top:16px; padding:18px; border-radius:18px; font-size:2.2rem; font-weight:900; }
+        .up-style { border:3px solid var(--up); color:var(--up); background: rgba(0,255,135,0.04); }
+        .down-style { border:3px solid var(--down); color:var(--down); background: rgba(255,56,56,0.04); }
+
+        /* SPLASH (واجهة أولية منفصلة - شفافة لتُظهر الكانفس تحته) */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            background: rgba(0,0,0,0.04); /* خفيف فقط */
+            pointer-events: auto;
+        }
+
+        .splash-content {
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            gap:14px;
+        }
+
+        .neon-ring {
+            padding:20px;
+            border-radius:50%;
+            background: radial-gradient(circle, rgba(0,210,255,0.12), transparent 70%);
+            box-shadow:
+                0 0 40px rgba(0,210,255,0.1),
+                0 0 80px rgba(0,210,255,0.06),
+                0 0 120px rgba(0,210,255,0.04);
+            animation: pulseNeon 2s infinite alternate;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .neon-ring img {
+            width: 220px;
+            height: 220px;
+            object-fit: cover;
+            border-radius: 50%;
+            display:block;
+            border: 6px solid rgba(255,255,255,0.03);
+        }
+        @keyframes pulseNeon {
+            from { transform: scale(0.985); opacity:0.98; }
+            to   { transform: scale(1.02); opacity:1; }
+        }
+
+        .splash-skip {
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.85);
+            font-family: monospace;
+            background: rgba(0,0,0,0.36);
+            padding: 8px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* Responsiveness */
+        @media (max-width:420px) {
+            .glass-container { padding: 22px; border-radius: 20px; width:94%; }
+            .neon-ring img { width:180px; height:180px; }
+            .circle-btn { width:56px; height:56px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Splash screen (أول ما يظهر) -->
+<div id="splash-screen" aria-hidden="false">
+    <div class="splash-content" role="dialog" aria-label="شاشة افتتاحية">
+        <div class="neon-ring" id="neonRing">
+            <!-- غيّر هذا الرابط إلى رابط صورتك -->
+            <img id="splash-img" src="PUT_IMAGE_LINK_HERE" alt="شاشة افتتاحية">
+        </div>
+        <div class="splash-skip" id="splashSkip">تخطي</div>
+    </div>
+</div>
+
+<!-- Canvas الخلفية (مثلثات/أسهم) -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- المحتوى الرئيسي -->
+<div class="glass-container" id="main-container">
+    <div class="logo-area">
+        <h1>BOT BILLIONAIRE</h1>
+        <p>Real-Time Market Sync</p>
+    </div>
+
+    <!-- صفحة تسجيل الدخول -->
+    <div id="page-login" class="page active-page">
+        <input type="number" id="trader-id" placeholder="ID المعرف">
+        <input type="password" id="access-key" placeholder="كلمة المرور">
+        <button class="action-btn" onclick="login()">دخول النظام</button>
+    </div>
+
+    <!-- الصفحة الرئيسية بعد تسجيل الدخول -->
+    <div id="page-main" class="page">
+        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--primary); margin-bottom:12px; font-weight:bold; font-family:monospace;">
+            <span>USER ID: <span id="display-id">----</span></span>
+            <span>[ SYSTEM LIVE ]</span>
+        </div>
+
+        <select id="candle-type">
+            <option value="AMERICAN">AMERICAN MARKET 🇺🇸</option>
+            <option value="RUSSIAN">RUSSIAN CANDLES 🇷🇺</option>
+            <option value="USA OTC">USA OTC SECTOR 🏦</option>
+        </select>
+
+        <div class="time-selector" role="tablist" aria-label="اختيار المدة">
+            <div class="circle-btn" onclick="sel(15, this)" role="button" aria-pressed="false">15M</div>
+            <div class="circle-btn" onclick="sel(5, this)" role="button" aria-pressed="false">5M</div>
+            <div class="circle-btn active" onclick="sel(1, this)" role="button" aria-pressed="true">1M</div>
+        </div>
+
+        <button id="scan-btn" class="action-btn" onclick="startAnalysis()">تحليل شمعة تالية</button>
+
+        <div id="monitor" class="analysis-box" aria-live="polite">
+            <div id="status-txt" style="position:absolute; top:6px; width:100%; font-size:0.62rem; color:var(--primary); font-family:monospace;">INITIALIZING...</div>
+            <div class="candle-flow" id="candle-wrap"></div>
+        </div>
+
+        <div id="result" class="signal-res" role="status" aria-hidden="true">
+            <div id="sig-val"></div>
+            <div id="sig-time" style="font-size:0.9rem; font-family:monospace; border-top:1px solid rgba(255,255,255,0.08); margin-top:10px; padding-top:6px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ----------------------------
+   Canvas background (مثلثات/أسهم) 
+   ---------------------------- */
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+
+let elements = [];
+function initBackground() {
+    elements = [];
+    for(let i = 0; i < 80; i++) {
+        elements.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 14 + 8,
+            speed: Math.random() * 1.2 + 0.3,
+            type: Math.random() > 0.5 ? 'up' : 'down',
+            opacity: Math.random() * 0.5 + 0.15,
+            sway: (Math.random()-0.5) * 0.6
+        });
+    }
+}
+
+function drawBackground() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    elements.forEach(el => {
+        ctx.font = `${Math.round(el.size)}px Arial`;
+        ctx.fillStyle = el.type === 'up'
+            ? `rgba(0, 255, 135, ${el.opacity})`
+            : `rgba(255, 56, 56, ${el.opacity})`;
+
+        // رسم السهم/المثلث
+        ctx.fillText(el.type === 'up' ? '▲' : '▼', el.x, el.y);
+
+        // حركة خفيفة مع تموج
+        el.y -= el.speed;
+        el.x += Math.sin(Date.now() * 0.0005 + el.sway) * 0.3;
+
+        if (el.y < -40) el.y = canvas.height + 40;
+        if (el.x < -20) el.x = canvas.width + 20;
+        if (el.x > canvas.width + 20) el.x = -20;
+    });
+
+    requestAnimationFrame(drawBackground);
+}
+
+window.addEventListener('resize', () => {
+    resizeCanvas();
+    initBackground();
+});
+initBackground();
+drawBackground();
+
+/* ----------------------------
+   App logic: login / selection / analysis
+   ---------------------------- */
+
+let selectedM = 1;
+
+// show/hide pages helpers (not changing original logic structure)
+function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active-page');
+}
+
+function login() {
+    const id = document.getElementById('trader-id').value;
+    const pass = document.getElementById('access-key').value;
+    // credential: any id + password "1234"
+    if(id && pass === "1234") {
+        document.getElementById('display-id').innerText = id;
+        showPage('page-main'); // show main page
+    } else {
+        alert("ID: ANY | PASS: 1234");
+    }
+}
+
+function sel(m, el) {
+    selectedM = m;
+    document.querySelectorAll('.circle-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed','false');
+    });
+    el.classList.add('active');
+    el.setAttribute('aria-pressed','true');
+}
+
+function startAnalysis() {
+    const btn = document.getElementById('scan-btn');
+    const mon = document.getElementById('monitor');
+    const wrap = document.getElementById('candle-wrap');
+    const res = document.getElementById('result');
+    const type = document.getElementById('candle-type').value;
+
+    btn.style.display = 'none';
+    res.style.display = 'none';
+    res.setAttribute('aria-hidden','true');
+    mon.style.display = 'block';
+    wrap.innerHTML = '';
+
+    // create animated bars (keep same look/animation as before)
+    for(let i=0; i<10; i++) {
+        const isUp = Math.random() > 0.5;
+        const c = document.createElement('div');
+        c.className = 'c-bar';
+        c.style.backgroundColor = isUp ? 'var(--up)' : 'var(--down)';
+        c.style.animationDelay = (i * 0.08) + 's';
+        c.style.height = (20 + Math.random()*50) + 'px';
+        const arrow = document.createElement('div');
+        arrow.className = isUp ? 'arrow-up' : 'arrow-down';
+        c.appendChild(arrow);
+        wrap.appendChild(c);
+    }
+
+    let p = 0;
+    const timer = setInterval(() => {
+        p++;
+        const statusTxt = document.getElementById('status-txt');
+        statusTxt.innerText = `SCANNING ${type} CHART... [${p*10}%]`;
+        if(p >= 10) {
+            clearInterval(timer);
+            showResult();
+        }
+    }, 900);
+}
+
+function showResult() {
+    document.getElementById('monitor').style.display = 'none';
+    const res = document.getElementById('result');
+    const isUp = Math.random() > 0.5;
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + selectedM);
+
+    document.getElementById('sig-val').innerText = isUp ? "CALL ⬆" : "PUT ⬇";
+    document.getElementById('sig-time').innerText = "EXPIRY: " + d.toLocaleTimeString();
+    res.className = "signal-res " + (isUp ? "up-style" : "down-style");
+    res.style.display = 'block';
+    res.setAttribute('aria-hidden','false');
+    document.getElementById('scan-btn').style.display = 'block';
+}
+
+/* ----------------------------
+   Splash behavior (first view)
+   - splash is separate, transparent so canvas remains visible
+   - hides itself and DOES NOT remove/disable canvas or scripts
+   ---------------------------- */
+(function() {
+    const splash = document.getElementById('splash-screen');
+    const skip = document.getElementById('splashSkip');
+    const container = document.getElementById('main-container');
+
+    // make sure main content doesn't appear above splash visually
+    if (container) {
+        // we keep container visible (it can be behind splash) but ensure no interference
+        container.style.visibility = 'visible';
+    }
+
+    function dismiss(quick = false) {
+        splash.style.transition = 'opacity 0.45s ease';
+        splash.style.opacity = '0';
+        setTimeout(() => {
+            if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+        }, quick ? 220 : 480);
+    }
+
+    // click to skip or explicit skip button
+    splash.addEventListener('click', () => dismiss(true));
+    skip.addEventListener('click', (e) => { e.stopPropagation(); dismiss(true); });
+
+    // auto dismiss after 3000ms so login becomes interactable
+    window.addEventListener('load', () => {
+        setTimeout(() => dismiss(false), 3000);
+    });
+})();
+
+</script>
+</body>
+</html>
